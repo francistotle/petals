@@ -12,6 +12,7 @@ from transformers.models.bloom.modeling_bloom import BloomModel
 
 from petals.bloom.from_pretrained import BLOCK_BRANCH_PREFIX, CLIENT_BRANCH
 from petals.client import DistributedBloomConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = get_logger(__file__)
 
@@ -53,17 +54,22 @@ def main():
     )
     config.dht_prefix = args.output_repo
 
-    model = BloomModel.from_pretrained(
-        args.model, use_auth_token=args.use_auth_token, revision=args.revision, torch_dtype=DTYPE_MAP[args.torch_dtype]
-    )
+    # model = BloomModel.from_pretrained(
+    #     args.model, use_auth_token=args.use_auth_token, revision=args.revision, torch_dtype=DTYPE_MAP[args.torch_dtype]
+    # )
+    # model = AutoModelForCausalLM.from_pretrained("bigcode/santacoder", revision="dedup-alt-comments", trust_remote_code=True)
+    
+    checkpoint = "bigcode/santacoder"
+    device = "cpu" # for GPU usage or "cpu" for CPU usage
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     if args.resize_token_embeddings:
         logger.info(f"Resizing token embeddings, new size = {args.resize_token_embeddings}")
         model.resize_token_embeddings(args.resize_token_embeddings)
         config.vocab_size = args.resize_token_embeddings
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        args.model, use_auth_token=args.use_auth_token, revision=args.revision
-    )
+    # tokenizer = transformers.AutoTokenizer.from_pretrained(
+    #     args.model, use_auth_token=args.use_auth_token, revision=args.revision
+    # )
     os.makedirs(args.output_path, exist_ok=True)
 
     repo = Repository(args.output_path, clone_from=args.output_repo, use_auth_token=args.use_auth_token)
@@ -94,3 +100,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
