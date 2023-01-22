@@ -12,7 +12,7 @@ from transformers.models.bloom.modeling_bloom import BloomModel
 
 from petals.bloom.from_pretrained import BLOCK_BRANCH_PREFIX, CLIENT_BRANCH
 from petals.client import DistributedBloomConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 
 logger = get_logger(__file__)
 
@@ -22,11 +22,11 @@ DTYPE_MAP = dict(bfloat16=torch.bfloat16, float16=torch.float16, float32=torch.f
 def main():
     parser = argparse.ArgumentParser(description="Load bloom layers and convert to 8-bit using torch quantization.")
 
-    parser.add_argument("--model", type=str, default="bigscience/bloom-6b3", help="Model name for from_pretrained")
+    parser.add_argument("--model", type=str, default="bigcode/santacoder", help="Model name for from_pretrained")
     parser.add_argument("--revision", type=str, default=None, help="Optional commit id from HF hub")
     parser.add_argument("--torch_dtype", type=str, default="auto", help="Load initial model in this dtype")
     parser.add_argument("--output_path", type=str, default="./converted_model", help="Track output repo to this folder")
-    parser.add_argument("--output_repo", type=str, default="bigscience/test-bloomd", help="Push to this HF hub repo")
+    parser.add_argument("--output_repo", type=str, default="bigcode/santacoder", help="Push to this HF hub repo")
     parser.add_argument("--client_branch", type=str, default=CLIENT_BRANCH, help="Save client version to this branch")
     parser.add_argument(
         "--block_branch_prefix", type=str, default=BLOCK_BRANCH_PREFIX, help="Save blocks to branches with this prefix"
@@ -49,23 +49,24 @@ def main():
         raise FileExistsError(f"Output path {args.output_path} already exists and is not an empty directory")
 
     logger.info(f"Loading source model {args.model} (this may take a few minutes)")
-    config = DistributedBloomConfig.from_pretrained(
-        args.model, use_auth_token=args.use_auth_token, revision=args.revision
-    )
-    config.dht_prefix = args.output_repo
+    # config = DistributedBloomConfig.from_pretrained(
+    #     args.model, use_auth_token=args.use_auth_token, revision=args.revision
+    # )
+    # config.dht_prefix = args.output_repo
 
     # model = BloomModel.from_pretrained(
     #     args.model, use_auth_token=args.use_auth_token, revision=args.revision, torch_dtype=DTYPE_MAP[args.torch_dtype]
     # )
-    # model = AutoModelForCausalLM.from_pretrained("bigcode/santacoder", revision="dedup-alt-comments", trust_remote_code=True)
-    
     checkpoint = "bigcode/santacoder"
-    device = "cpu" # for GPU usage or "cpu" for CPU usage
+    model = AutoModelForCausalLM.from_pretrained(checkpoint, revision="dedup-alt-comments", trust_remote_code=True)
+    
+    device = "cuda" # for GPU usage or "cpu" for CPU usage
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    config = AutoConfig.from_pretrained(checkpoint)
     if args.resize_token_embeddings:
         logger.info(f"Resizing token embeddings, new size = {args.resize_token_embeddings}")
         model.resize_token_embeddings(args.resize_token_embeddings)
-        config.vocab_size = args.resize_token_embeddings
+        # config.vocab_size = args.resize_token_embeddings
 
     # tokenizer = transformers.AutoTokenizer.from_pretrained(
     #     args.model, use_auth_token=args.use_auth_token, revision=args.revision
